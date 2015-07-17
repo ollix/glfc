@@ -19,5 +19,6 @@
 #define GLFC_GLFC_H_
 
 #include "glfc/filter.h"
+#include "glfc/gaussian_blur_filter.h"
 
 #endif  // GLFC_GLFC_H_

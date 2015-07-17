@@ -17,12 +17,48 @@
 
 #include "glfc/filter.h"
 
+#include <cstdio>
+#include <string>
+
+#include "glfc/framebuffer.h"
+#include "glfc/opengl_hook.h"
+#include "glfc/program.h"
+
 namespace glfc {
 
 Filter::Filter() {
 }
 
 Filter::~Filter() {
+}
+
+void Filter::Render(const GLuint input_texture, const int width,
+                    const int height) {
+  Framebuffer framebuffer(width, height);
+  if (!framebuffer.Init()) {
+#ifdef DEBUG
+    fprintf(stderr, "!! Failed to initialize framebuffer.\n");
+#endif
+    return;
+  }
+
+  Program program;
+  if (!program.Init(GetVertexShader(), GetFragmentShader())) {
+#ifdef DEBUG
+    fprintf(stderr, "!! Failed to initialize program.\n");
+#endif
+    return;
+  }
+
+  // Applies the filter to the framebuffer object.
+  framebuffer.Bind();
+  SetUniforms(program.program());
+  program.Render(input_texture);
+  program.Finalize();
+  framebuffer.Unbind();
+
+  // Renders the current framebuffer object.
+  framebuffer.Render();
 }
 
 }  // namespace glfc

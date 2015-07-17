@@ -8,7 +8,7 @@ the design pattern significantly.
 The code is written in C++11 and the coding style strongly
 follows the [Google C++ Style Guide](http://google.github.io/styleguide/cppguide.html). All commits must pass
 Google's cpplint tool. Verifying coding style can be easily done by running
-[cclint](https://github.com/olliwang/cclint) on the project's root directory:
+[cclint](https://github.com/ollix/cclint) on the project's root directory:
 
     cclint --expanddir=recursive glfc/
 

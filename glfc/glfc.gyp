@@ -25,6 +25,9 @@
       'type': 'static_library',
       'sources': [
          'filter.cc',
+         'framebuffer.cc',
+         'gaussian_blur_filter.cc',
+         'program.cc',
       ],
       'include_dirs': [
         '..',
