@@ -28,7 +28,8 @@
 
 namespace glfc {
 
-GaussianBlurFilter::GaussianBlurFilter() : blur_radius_(4),
+GaussianBlurFilter::GaussianBlurFilter() : blur_radius_(2),
+                                           device_pixel_ratio_(1),
                                            sigma_(2),
                                            texel_height_offset_(0),
                                            texel_spacing_multiplier_(1),
@@ -39,17 +40,21 @@ GaussianBlurFilter::~GaussianBlurFilter() {
 }
 
 std::string GaussianBlurFilter::GetFragmentShader() const {
+  const int kBlurRadius = std::round(blur_radius_ * device_pixel_ratio_);
+  if (kBlurRadius <= 0) return "";
+  const float kSigma = sigma_ * device_pixel_ratio_;
+
   // First, generate the normal Gaussian weights for a given `sigma_`.
   float* standard_gaussian_weights = reinterpret_cast<float*>(
-      std::calloc(blur_radius_ + 1, sizeof(float)));
+      std::calloc(kBlurRadius + 1, sizeof(float)));
   float sum_of_weights = 0.0;
   for (int current_gaussian_weight_index = 0;
-       current_gaussian_weight_index < blur_radius_ + 1;
+       current_gaussian_weight_index < kBlurRadius + 1;
        current_gaussian_weight_index++) {
     standard_gaussian_weights[current_gaussian_weight_index] = \
-        (1.0 / std::sqrt(2.0 * M_PI * std::pow(sigma_, 2.0))) *
+        (1.0 / std::sqrt(2.0 * M_PI * std::pow(kSigma, 2.0))) *
         std::exp(-std::pow(current_gaussian_weight_index, 2.0) /
-                 (2.0 * std::pow(sigma_, 2.0)));
+                 (2.0 * std::pow(kSigma, 2.0)));
 
     if (current_gaussian_weight_index == 0) {
       sum_of_weights += \
@@ -63,7 +68,7 @@ std::string GaussianBlurFilter::GetFragmentShader() const {
   // Next, normalize these weights to prevent the clipping of the Gaussian
   // curve at the end of the discrete samples from reducing luminance.
   for (int current_gaussian_weight_index = 0;
-       current_gaussian_weight_index < blur_radius_ + 1;
+       current_gaussian_weight_index < kBlurRadius + 1;
        current_gaussian_weight_index++) {
     standard_gaussian_weights[current_gaussian_weight_index] = \
         standard_gaussian_weights[current_gaussian_weight_index] /
@@ -73,9 +78,9 @@ std::string GaussianBlurFilter::GetFragmentShader() const {
   // From these weights we calculate the offsets to read interpolated values
   // from.
   const int kNumberOfOptimizedOffsets = \
-      std::min(blur_radius_ / 2 + (blur_radius_ % 2), 7);
+      std::min(kBlurRadius / 2 + (kBlurRadius % 2), 7);
   const int kTruekNumberOfOptimizedOffsets = \
-      blur_radius_ / 2 + (blur_radius_ % 2);
+      kBlurRadius / 2 + (kBlurRadius % 2);
 
   std::string shader_string;
   // Header
@@ -190,17 +195,21 @@ void main() {
 }
 
 std::string GaussianBlurFilter::GetVertexShader() const {
+  const int kBlurRadius = std::round(blur_radius_ * device_pixel_ratio_);
+  if (kBlurRadius <= 0) return "";
+  const float kSigma = sigma_ * device_pixel_ratio_;
+
   // First, generate the normal Gaussian weights for a given `sigma_`.
   float* standard_gaussian_weights = reinterpret_cast<float*>(
-      std::calloc(blur_radius_ + 1, sizeof(float)));
+      std::calloc(kBlurRadius + 1, sizeof(float)));
   float sum_of_weights = 0.0;
   for (int current_gaussian_weight_index = 0;
-       current_gaussian_weight_index < blur_radius_ + 1;
+       current_gaussian_weight_index < kBlurRadius + 1;
        current_gaussian_weight_index++) {
     standard_gaussian_weights[current_gaussian_weight_index] = \
-        (1.0 / std::sqrt(2.0 * M_PI * std::pow(sigma_, 2.0)))
+        (1.0 / std::sqrt(2.0 * M_PI * std::pow(kSigma, 2.0)))
         * std::exp(-std::pow(current_gaussian_weight_index, 2.0)
-                   / (2.0 * std::pow(sigma_, 2.0)));
+                   / (2.0 * std::pow(kSigma, 2.0)));
 
     if (current_gaussian_weight_index == 0) {
       sum_of_weights += \
@@ -214,7 +223,7 @@ std::string GaussianBlurFilter::GetVertexShader() const {
   // Next, normalize these weights to prevent the clipping of the Gaussian
   // curve at the end of the discrete samples from reducing luminance.
   for (int current_gaussian_weight_index = 0;
-       current_gaussian_weight_index < blur_radius_ + 1;
+       current_gaussian_weight_index < kBlurRadius + 1;
        current_gaussian_weight_index++) {
     standard_gaussian_weights[current_gaussian_weight_index] = \
         standard_gaussian_weights[current_gaussian_weight_index] /
@@ -224,7 +233,7 @@ std::string GaussianBlurFilter::GetVertexShader() const {
   // From these weights we calculate the offsets to read interpolated values
   // from.
   const int kNumberOfOptimizedOffsets = \
-      std::min(blur_radius_ / 2 + (blur_radius_ % 2), 7);
+      std::min(kBlurRadius / 2 + (kBlurRadius % 2), 7);
   float* optimized_gaussian_offsets = reinterpret_cast<float*>(
       std::calloc(kNumberOfOptimizedOffsets, sizeof(float)));
 
@@ -297,10 +306,13 @@ void main() {
   return shader_string;
 }
 
-void GaussianBlurFilter::Render(const GLuint input_texture, const int width,
-                                const int height) {
+void GaussianBlurFilter::Render(const GLuint input_texture,
+                                const int width, const int height,
+                                const float device_pixel_ratio) {
+  device_pixel_ratio_ = device_pixel_ratio;
   // Initializes the intermediate framebuffer.
-  Framebuffer framebuffer(width, height);
+  Framebuffer framebuffer(width * device_pixel_ratio,
+                          height * device_pixel_ratio);
   if (!framebuffer.Init()) {
 #ifdef DEBUG
     fprintf(stderr, "!! Failed to initialize framebuffer.\n");
@@ -320,7 +332,7 @@ void GaussianBlurFilter::Render(const GLuint input_texture, const int width,
   // First pass. Applies Gaussian blur to the input texture for horizontal
   // direction.
   framebuffer.Bind();
-  texel_width_offset_ = texel_spacing_multiplier_ / width;
+  texel_width_offset_ = texel_spacing_multiplier_ / framebuffer.width();
   texel_height_offset_ = 0;
   SetUniforms(program.program());
   program.Render(input_texture);
@@ -328,7 +340,7 @@ void GaussianBlurFilter::Render(const GLuint input_texture, const int width,
   // Second pass. Applies Gaussian blur to the `framebuffer`'s internal texture
   // for vertical direction.
   texel_width_offset_ = 0;
-  texel_height_offset_ = texel_spacing_multiplier_ / height;
+  texel_height_offset_ = texel_spacing_multiplier_ / framebuffer.height();
   SetUniforms(program.program());
   framebuffer.UpdateTexture(&program);
   program.Finalize();

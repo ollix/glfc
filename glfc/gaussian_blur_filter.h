@@ -37,11 +37,11 @@ class GaussianBlurFilter : public Filter {
 
   // Inherited from `Filter` class.
   void Render(const GLuint input_texture, const int width,
-              const int height) final;
+              const int height, const float device_pixel_ratio) final;
 
   // Setters and accessors.
-  int blur_radius() const { return blur_radius_; }
-  void set_blur_radius(const int radius) { blur_radius_ = std::max(1, radius); }
+  float blur_radius() const { return blur_radius_; }
+  void set_blur_radius(const float blur_radius) { blur_radius_ = blur_radius; }
   float sigma() const { return sigma_; }
   void set_sigma(const float sigma) { sigma_ = sigma; }
   float texel_spacing_multiplier() const { return texel_spacing_multiplier_; }
@@ -59,12 +59,15 @@ class GaussianBlurFilter : public Filter {
   // Inherited from `Filter` class.
   void SetUniforms(GLuint program) const final;
 
-  // The radius in pixels to use for the blur, with a default of 2. This value
-  // must be equal or greater than 1.
-  int blur_radius_;
+  // The radius in points to use for the blur effect, with a default of 2.
+  float blur_radius_;
 
-  // The sigma variable used in Gaussian distribution function for calculating
-  // the Gaussian weights.
+  // Indicates the ratio between physical pixels and logical pixels. This value
+  // will be updated whenever `Render()` is called. The default value is 1.
+  float device_pixel_ratio_;
+
+  // The sigma variable related to points used in Gaussian distribution
+  // function for calculating the Gaussian weights.
   float sigma_;
 
   // Indicates the vertical offset of a single step used in the vertex shader.

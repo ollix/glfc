@@ -33,8 +33,9 @@ Filter::~Filter() {
 }
 
 void Filter::Render(const GLuint input_texture, const int width,
-                    const int height) {
-  Framebuffer framebuffer(width, height);
+                    const int height, const float device_pixel_ratio) {
+  Framebuffer framebuffer(width * device_pixel_ratio,
+                          height * device_pixel_ratio);
   if (!framebuffer.Init()) {
 #ifdef DEBUG
     fprintf(stderr, "!! Failed to initialize framebuffer.\n");

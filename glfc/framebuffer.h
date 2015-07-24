@@ -52,7 +52,9 @@ class Framebuffer {
   void UpdateTexture(Program* program);
 
   // Accessors.
+  const int height() const { return height_; }
   GLuint texture() const { return texture_; }
+  const int width() const { return width_; }
 
  private:
   // Resets the states.

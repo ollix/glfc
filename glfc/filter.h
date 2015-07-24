@@ -36,7 +36,7 @@ class Filter {
   // specifically for one pass rendering. A `Filter` subclass can override
   // this method to implement two pass rendering or combine multiple filters.
   virtual void Render(const GLuint input_texture, const int width,
-                      const int height);
+                      const int height, const float device_pixel_ratio);
 
  private:
   // Returns the fragment shader string. The returned shader must declare the
