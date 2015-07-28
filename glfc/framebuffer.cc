@@ -127,7 +127,15 @@ void Framebuffer::Bind() {
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, &original_framebuffer_);
   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
   blend_is_enabled_ = glIsEnabled(GL_BLEND);
-  glDisable(GL_BLEND);
+  if (blend_is_enabled_) {
+    glGetIntegerv(GL_BLEND_SRC_RGB, &blend_src_rgb_);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &blend_src_alpha_);
+    glGetIntegerv(GL_BLEND_DST_RGB, &blend_dst_rgb_);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &blend_dst_alpha_);
+  } else {
+    glEnable(GL_BLEND);
+  }
+  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void Framebuffer::Render() const {
@@ -159,14 +167,19 @@ void Framebuffer::Reset() {
 
 void Framebuffer::Unbind() const {
   glBindFramebuffer(GL_FRAMEBUFFER, original_framebuffer_);
-  if (blend_is_enabled_)
-    glEnable(GL_BLEND);
+  if (blend_is_enabled_) {
+    glBlendFuncSeparate(blend_src_rgb_, blend_dst_rgb_, blend_src_alpha_,
+                        blend_dst_alpha_);
+  } else {
+    glDisable(GL_BLEND);
+  }
 }
 
 void Framebuffer::UpdateTexture(Program* program) {
   // Makes sure the internal texture is attached to the framebuffer object.
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                          texture_, 0);
+  glBlendFunc(GL_ONE, GL_ZERO);
   program->Render(texture_);
 }
 

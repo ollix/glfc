@@ -60,8 +60,24 @@ class Framebuffer {
   // Resets the states.
   void Reset();
 
-  // Records whether `GL_BLEND` is enabled when binding `framebuffer_`.
+  // Keeps the original `GL_BLEND_DST_ALPHA` parameter when binding the
+  // framebuffer so it can be restored when unbinding.
+  GLint blend_dst_alpha_;
+
+  // Keeps the original `GL_BLEND_DST_RGB` parameter when binding the
+  // framebuffer so it can be restored when unbinding.
+  GLint blend_dst_rgb_;
+
+  // Indicates whether `GL_BLEND` is enabled when binding the framebuffer.
   GLboolean blend_is_enabled_;
+
+  // Keeps the original `GL_BLEND_SRC_ALPHA` parameter when binding the
+  // framebuffer so it can be restored when unbinding.
+  GLint blend_src_alpha_;
+
+  // Keeps the original `GL_BLEND_SRC_RGB` parameter when binding the
+  // framebuffer so it can be restored when unbinding.
+  GLint blend_src_rgb_;
 
   // The framebuffer object name.
   GLuint framebuffer_;
