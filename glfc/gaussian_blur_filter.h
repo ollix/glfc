@@ -28,8 +28,8 @@
 namespace glfc {
 
 // This class implements the Gaussian blur effect. The shaders used in this
-// class are ported from GPUImage's `GPUImageiOSBlurFilter` class. The source
-// code can be found at http://git.io/vmKcw.
+// class are ported from GPUImage's `GPUImageiOSBlurFilter` class with some
+// modifications. The original source code can be found at http://git.io/vmKcw.
 class GaussianBlurFilter : public Filter {
  public:
   GaussianBlurFilter();

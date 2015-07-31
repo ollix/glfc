@@ -44,35 +44,28 @@ std::string GaussianBlurFilter::GetFragmentShader() const {
   if (kBlurRadius <= 0) return "";
   const float kSigma = sigma_ * device_pixel_ratio_;
 
-  // First, generate the normal Gaussian weights for a given `sigma_`.
+  // First, generate the normal Gaussian weights for a given sigma.
+  const int kNumberOfWeights = kBlurRadius + 2;
   float* standard_gaussian_weights = reinterpret_cast<float*>(
-      std::calloc(kBlurRadius + 1, sizeof(float)));
+      std::calloc(kNumberOfWeights, sizeof(float)));
+  standard_gaussian_weights[kNumberOfWeights - 1] = 0;
   float sum_of_weights = 0.0;
-  for (int current_gaussian_weight_index = 0;
-       current_gaussian_weight_index < kBlurRadius + 1;
-       current_gaussian_weight_index++) {
-    standard_gaussian_weights[current_gaussian_weight_index] = \
-        (1.0 / std::sqrt(2.0 * M_PI * std::pow(kSigma, 2.0))) *
-        std::exp(-std::pow(current_gaussian_weight_index, 2.0) /
-                 (2.0 * std::pow(kSigma, 2.0)));
+  for (int index = 0; index < kNumberOfWeights - 1; index++) {
+    standard_gaussian_weights[index] = \
+        (1.0 / std::sqrt(2.0 * M_PI * std::pow(kSigma, 2.0)))
+        * std::exp(-std::pow(index, 2.0) / (2.0 * std::pow(kSigma, 2.0)));
 
-    if (current_gaussian_weight_index == 0) {
-      sum_of_weights += \
-          standard_gaussian_weights[current_gaussian_weight_index];
-    } else {
-      sum_of_weights += \
-          2.0 * standard_gaussian_weights[current_gaussian_weight_index];
-    }
+    if (index == 0)
+      sum_of_weights += standard_gaussian_weights[index];
+    else
+      sum_of_weights += 2.0 * standard_gaussian_weights[index];
   }
 
   // Next, normalize these weights to prevent the clipping of the Gaussian
   // curve at the end of the discrete samples from reducing luminance.
-  for (int current_gaussian_weight_index = 0;
-       current_gaussian_weight_index < kBlurRadius + 1;
-       current_gaussian_weight_index++) {
-    standard_gaussian_weights[current_gaussian_weight_index] = \
-        standard_gaussian_weights[current_gaussian_weight_index] /
-        sum_of_weights;
+  for (int index = 0; index < kNumberOfWeights - 1; index++) {
+    standard_gaussian_weights[index] = \
+        standard_gaussian_weights[index] / sum_of_weights;
   }
 
   // From these weights we calculate the offsets to read interpolated values
@@ -112,15 +105,14 @@ void main() {
   shader_string.append(header);
 
   // Inner texture loop.
-  const float kStandardGaussianWeight = standard_gaussian_weights[0];
   const char* kInnerTextureLoopFirstLineFormat = R"(
   sum += texture2D(inputImageTexture, blurCoordinates[0]) * %f;)";
   const int kInnerTextureLoopFirstLineLength = \
       snprintf(NULL, 0, kInnerTextureLoopFirstLineFormat,
-      kStandardGaussianWeight) + 1;
+      standard_gaussian_weights[0]) + 1;
   char inner_texture_loop_first_line[kInnerTextureLoopFirstLineLength];
   snprintf(inner_texture_loop_first_line, kInnerTextureLoopFirstLineLength,
-           kInnerTextureLoopFirstLineFormat, kStandardGaussianWeight);
+           kInnerTextureLoopFirstLineFormat, standard_gaussian_weights[0]);
   shader_string.append(inner_texture_loop_first_line);
 
   const char* kInnerTextureLoopFormat = R"(
@@ -168,20 +160,22 @@ void main() {
           standard_gaussian_weights[current_overlow_texture_read * 2 + 1];
       const float kSecondWeight = \
           standard_gaussian_weights[current_overlow_texture_read * 2 + 2];
-
       const float kOptimizedWeight = kFirstWeight + kSecondWeight;
-      const float kOptimizedOffset = \
-          (kFirstWeight * (current_overlow_texture_read * 2 + 1) +
-              kSecondWeight * (current_overlow_texture_read * 2 + 2))
-          / kOptimizedWeight;
+      if (kOptimizedWeight != 0) {
+        const float kOptimizedOffset = \
+            (kFirstWeight * (current_overlow_texture_read * 2 + 1) +
+                kSecondWeight * (current_overlow_texture_read * 2 + 2))
+            / kOptimizedWeight;
 
-      const int kStringLength = \
-          snprintf(NULL, 0, kInnerTextureLoopFormat, kOptimizedOffset,
-                   kOptimizedWeight, kOptimizedOffset, kOptimizedWeight) + 1;
-      char string[kStringLength];
-      snprintf(string, kStringLength, kInnerTextureLoopFormat, kOptimizedOffset,
-               kOptimizedWeight, kOptimizedOffset, kOptimizedWeight);
-      shader_string.append(string);
+        const int kStringLength = \
+            snprintf(NULL, 0, kInnerTextureLoopFormat, kOptimizedOffset,
+                     kOptimizedWeight, kOptimizedOffset, kOptimizedWeight) + 1;
+        char string[kStringLength];
+        snprintf(string, kStringLength, kInnerTextureLoopFormat,
+                 kOptimizedOffset, kOptimizedWeight, kOptimizedOffset,
+                 kOptimizedWeight);
+        shader_string.append(string);
+      }
     }
   }
 
@@ -200,34 +194,27 @@ std::string GaussianBlurFilter::GetVertexShader() const {
   const float kSigma = sigma_ * device_pixel_ratio_;
 
   // First, generate the normal Gaussian weights for a given `sigma_`.
+  const int kNumberOfStandardGaussianWeights = kBlurRadius + 2;
   float* standard_gaussian_weights = reinterpret_cast<float*>(
-      std::calloc(kBlurRadius + 1, sizeof(float)));
+      std::calloc(kNumberOfStandardGaussianWeights, sizeof(float)));
+  standard_gaussian_weights[kNumberOfStandardGaussianWeights - 1] = 0;
   float sum_of_weights = 0.0;
-  for (int current_gaussian_weight_index = 0;
-       current_gaussian_weight_index < kBlurRadius + 1;
-       current_gaussian_weight_index++) {
-    standard_gaussian_weights[current_gaussian_weight_index] = \
+  for (int index = 0; index < kNumberOfStandardGaussianWeights - 1; index++) {
+    standard_gaussian_weights[index] = \
         (1.0 / std::sqrt(2.0 * M_PI * std::pow(kSigma, 2.0)))
-        * std::exp(-std::pow(current_gaussian_weight_index, 2.0)
-                   / (2.0 * std::pow(kSigma, 2.0)));
+        * std::exp(-std::pow(index, 2.0) / (2.0 * std::pow(kSigma, 2.0)));
 
-    if (current_gaussian_weight_index == 0) {
-      sum_of_weights += \
-          standard_gaussian_weights[current_gaussian_weight_index];
-    } else {
-        sum_of_weights += \
-            2.0 * standard_gaussian_weights[current_gaussian_weight_index];
-    }
+    if (index == 0)
+      sum_of_weights += standard_gaussian_weights[index];
+    else
+      sum_of_weights += 2.0 * standard_gaussian_weights[index];
   }
 
   // Next, normalize these weights to prevent the clipping of the Gaussian
   // curve at the end of the discrete samples from reducing luminance.
-  for (int current_gaussian_weight_index = 0;
-       current_gaussian_weight_index < kBlurRadius + 1;
-       current_gaussian_weight_index++) {
-    standard_gaussian_weights[current_gaussian_weight_index] = \
-        standard_gaussian_weights[current_gaussian_weight_index] /
-        sum_of_weights;
+  for (int index = 0; index < kNumberOfStandardGaussianWeights - 1; index++) {
+    standard_gaussian_weights[index] = \
+        standard_gaussian_weights[index] / sum_of_weights;
   }
 
   // From these weights we calculate the offsets to read interpolated values
@@ -237,18 +224,13 @@ std::string GaussianBlurFilter::GetVertexShader() const {
   float* optimized_gaussian_offsets = reinterpret_cast<float*>(
       std::calloc(kNumberOfOptimizedOffsets, sizeof(float)));
 
-  for (int current_optimized_offset = 0;
-       current_optimized_offset < kNumberOfOptimizedOffsets;
-       current_optimized_offset++) {
-    const float kFirstWeight = \
-        standard_gaussian_weights[current_optimized_offset * 2 + 1];
-    const float kSecondWeight = \
-        standard_gaussian_weights[current_optimized_offset * 2 + 2];
+  for (int index = 0; index < kNumberOfOptimizedOffsets; index++) {
+    const float kFirstWeight = standard_gaussian_weights[index * 2 + 1];
+    const float kSecondWeight = standard_gaussian_weights[index * 2 + 2];
     const float kOptimizedWeight = kFirstWeight + kSecondWeight;
 
-    optimized_gaussian_offsets[current_optimized_offset] = \
-        (kFirstWeight * (current_optimized_offset * 2 + 1)
-            + kSecondWeight * (current_optimized_offset * 2 + 2))
+    optimized_gaussian_offsets[index] = \
+        (kFirstWeight * (index * 2 + 1) + kSecondWeight * (index * 2 + 2))
         / kOptimizedWeight;
   }
 
@@ -279,13 +261,11 @@ void main() {
   blurCoordinates[0] = inputTextureCoordinate.xy;)");
   const char* kInnerOffsetLoopFormat = R"(
   blurCoordinates[%d] = inputTextureCoordinate.xy + singleStepOffset * %f;
-  blurCoordinates[%d] = inputTextureCoordinate.xy - singleStepOffset * %f;)";    for (int current_optimized_offset = 0;
-       current_optimized_offset < kNumberOfOptimizedOffsets;
-       current_optimized_offset++) {
-    const int kFirstIndex = (current_optimized_offset * 2) + 1;
-    const int kSecondIndex = (current_optimized_offset * 2) + 2;
-    const float kOptimizedGaussianOffset = \
-        optimized_gaussian_offsets[current_optimized_offset];
+  blurCoordinates[%d] = inputTextureCoordinate.xy - singleStepOffset * %f;)";
+  for (int index = 0; index < kNumberOfOptimizedOffsets; index++) {
+    const int kFirstIndex = (index * 2) + 1;
+    const int kSecondIndex = (index * 2) + 2;
+    const float kOptimizedGaussianOffset = optimized_gaussian_offsets[index];
 
     const int kStringLength = \
         snprintf(NULL, 0, kInnerOffsetLoopFormat, kFirstIndex,
