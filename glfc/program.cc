@@ -77,15 +77,21 @@ GLuint CompileShader(const GLenum shader_type, std::string source) {
 
 namespace glfc {
 
-Program::Program() : fragment_shader_(0), program_(0), vertex_shader_(0) {
+Program::Program() : fragment_shader_(0), is_initialized_(false), program_(0),
+                     vertex_shader_(0) {
 }
 
 Program::~Program() {
-  Reset();
+  if (is_initialized_)
+    Finalize();
 }
 
 bool Program::Init(const std::string vertex_shader_source,
                    const std::string fragment_shader_source) {
+  if (is_initialized_) {
+    Finalize();
+  }
+
   program_ = glCreateProgram();
   if (program_ == 0) {
     Reset();
@@ -123,14 +129,29 @@ bool Program::Init(const std::string vertex_shader_source,
 #endif
     return false;
   }
+  GLint current_program;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &current_program);
+  glUseProgram(program_);
+  glGenBuffers(1, &array_buffer_);
+  glGenBuffers(1, &index_buffer_);
+  glUseProgram(current_program);
+  is_initialized_ = true;
+  return true;
+}
+
+void Program::Use() {
+  if (!is_initialized_) {
+#ifdef DEBUG
+    fprintf(stderr, "!! Cannot use program because it's not initialized.\n");
+    return;
+#endif
+  }
   glUseProgram(program_);
   BindBufferObjects();
-  return true;
 }
 
 void Program::BindBufferObjects() {
   // Binds the array buffer object.
-  glGenBuffers(1, &array_buffer_);
   glBindBuffer(GL_ARRAY_BUFFER, array_buffer_);
   glBufferData(GL_ARRAY_BUFFER, sizeof(kArrayBuffer), kArrayBuffer,
                GL_STATIC_DRAW);
@@ -150,7 +171,6 @@ void Program::BindBufferObjects() {
       reinterpret_cast<GLvoid*>(sizeof(FramebufferCoordinate)));
 
   // Binds the index buffer object.
-  glGenBuffers(1, &index_buffer_);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int) * kIndexBufferCount,
                kIndexBuffer, GL_STATIC_DRAW);
@@ -162,8 +182,8 @@ void Program::Finalize() {
   glDeleteBuffers(1, &array_buffer_);
   glDeleteBuffers(1, &index_buffer_);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glUseProgram(0);
   Reset();
+  is_initialized_ = false;
 }
 
 void Program::Render(const GLuint input_texture) {

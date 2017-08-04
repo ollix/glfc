@@ -40,6 +40,9 @@ class Framebuffer {
   // Binds the framebuffer object.
   void Bind();
 
+  // Clears the color buffer.
+  void Clear();
+
   // Renders the internal texture to the framebuffer that is currently binded
   // to OpenGL. This method should be called when the framebuffer instance
   // itself is not binded.
@@ -58,7 +61,7 @@ class Framebuffer {
 
  private:
   // Resets the states.
-  void Reset();
+  void Finalize();
 
   // Keeps the original `GL_BLEND_DST_ALPHA` parameter when binding the
   // framebuffer so it can be restored when unbinding.
@@ -84,6 +87,12 @@ class Framebuffer {
 
   // The height of the framebuffer.
   const int height_;
+
+  // Indicates if the framebuffer has been initialized.
+  bool is_initialized_;
+
+  // The strong reference to the corresponded program object.
+  Program* program_;
 
   // The renderbuffer object name.
   GLuint renderbuffer_;

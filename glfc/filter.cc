@@ -26,40 +26,62 @@
 
 namespace glfc {
 
-Filter::Filter() {
+Filter::Filter() : device_pixel_ratio_(1), framebuffer_(nullptr),
+                   program_(new Program) {
 }
 
 Filter::~Filter() {
+  if (framebuffer_ != nullptr) {
+    delete framebuffer_;
+  }
+  delete program_;
 }
 
-void Filter::Render(const GLuint input_texture, const int width,
+void Filter::ApplyFilterToFramebuffer(const GLuint input_texture,
+                                      Program* program,
+                                      Framebuffer* framebuffer) {
+  SetUniforms(program);
+  program->Render(input_texture);
+}
+
+bool Filter::Render(const GLuint input_texture, const int width,
                     const int height, const float device_pixel_ratio) {
-  Framebuffer framebuffer(width * device_pixel_ratio,
-                          height * device_pixel_ratio);
-  if (!framebuffer.Init()) {
+  const int kWidth = width * device_pixel_ratio;
+  const int kHeight = height * device_pixel_ratio;
+  set_device_pixel_ratio(device_pixel_ratio);
+  if (framebuffer_ != nullptr &&
+      (framebuffer_->width() != kWidth || framebuffer_->height() != kHeight)) {
+    delete framebuffer_;
+    framebuffer_ = nullptr;
+  }
+  if (framebuffer_ == nullptr) {
+    framebuffer_ = new Framebuffer(kWidth, kHeight);
+    if (!framebuffer_->Init()) {
 #ifdef DEBUG
-    fprintf(stderr, "!! Failed to initialize framebuffer.\n");
+      fprintf(stderr, "!! Failed to initialize framebuffer.\n");
 #endif
-    return;
+      return false;
+    }
   }
 
-  Program program;
-  if (!program.Init(GetVertexShader(), GetFragmentShader())) {
+  if (!program_->is_initialized() || ShouldUpdateShaders()) {
+    if (!program_->Init(GetVertexShader(), GetFragmentShader())) {
 #ifdef DEBUG
-    fprintf(stderr, "!! Failed to initialize program.\n");
+      fprintf(stderr, "!! Failed to initialize program.\n");
+      return false;
 #endif
-    return;
+    }
   }
 
   // Applies the filter to the framebuffer object.
-  framebuffer.Bind();
-  SetUniforms(program.program());
-  program.Render(input_texture);
-  program.Finalize();
-  framebuffer.Unbind();
+  framebuffer_->Bind();
+  framebuffer_->Clear();
+  program_->Use();
+  ApplyFilterToFramebuffer(input_texture, program_, framebuffer_);
+  framebuffer_->Unbind();
 
   // Renders the current framebuffer object.
-  framebuffer.Render();
+  framebuffer_->Render();
 }
 
 }  // namespace glfc

@@ -29,20 +29,40 @@
 namespace glfc {
 
 GaussianBlurFilter::GaussianBlurFilter() : blur_radius_(2),
-                                           device_pixel_ratio_(1),
                                            sigma_(2),
                                            texel_height_offset_(0),
                                            texel_spacing_multiplier_(1),
-                                           texel_width_offset_(0) {
+                                           texel_width_offset_(0),
+                                           should_update_shaders_(false) {
 }
 
 GaussianBlurFilter::~GaussianBlurFilter() {
 }
 
+void GaussianBlurFilter::ApplyFilterToFramebuffer(const GLuint input_texture,
+                                                  Program* program,
+                                                  Framebuffer* framebuffer) {
+  should_update_shaders_ = false;
+
+  // First pass. Applies Gaussian blur to the input texture for horizontal
+  // direction.
+  texel_width_offset_ = texel_spacing_multiplier_ / framebuffer->width();
+  texel_height_offset_ = 0;
+  SetUniforms(program);
+  program->Render(input_texture);
+
+  // Second pass. Applies Gaussian blur to the `framebuffer`'s internal texture
+  // for vertical direction.
+  texel_width_offset_ = 0;
+  texel_height_offset_ = texel_spacing_multiplier_ / framebuffer->height();
+  SetUniforms(program);
+  framebuffer->UpdateTexture(program);
+}
+
 std::string GaussianBlurFilter::GetFragmentShader() const {
-  const int kBlurRadius = std::round(blur_radius_ * device_pixel_ratio_);
+  const int kBlurRadius = std::round(blur_radius_ * device_pixel_ratio());
   if (kBlurRadius <= 0) return "";
-  const float kSigma = sigma_ * device_pixel_ratio_;
+  const float kSigma = sigma_ * device_pixel_ratio();
 
   // First, generate the normal Gaussian weights for a given sigma.
   const int kNumberOfWeights = kBlurRadius + 2;
@@ -77,18 +97,9 @@ std::string GaussianBlurFilter::GetFragmentShader() const {
 
   std::string shader_string;
   // Header
-  const char* kHeaderFormat =
-#ifdef GLFC_IOS
-R"(uniform sampler2D inputImageTexture;
-uniform highp float texelWidthOffset;
-uniform highp float texelHeightOffset;
-
-varying highp vec2 blurCoordinates[%lu];
-
-void main() {
-  lowp vec4 sum = vec4(0.0);)";
-#else
-R"(uniform sampler2D inputImageTexture;
+  const char* kHeaderFormat = R"(
+precision mediump float;
+uniform sampler2D inputImageTexture;
 uniform float texelWidthOffset;
 uniform float texelHeightOffset;
 
@@ -96,7 +107,7 @@ varying vec2 blurCoordinates[%lu];
 
 void main() {
   vec4 sum = vec4(0.0);)";
-#endif
+
   const int kNumberOfBlurCoordinates = 1 + (kNumberOfOptimizedOffsets * 2);
   const int kHeaderLength = snprintf(NULL, 0, kHeaderFormat,
                                      kNumberOfBlurCoordinates) + 1;
@@ -142,13 +153,8 @@ void main() {
   // If the number of required samples exceeds the amount we can pass in via
   // varyings, we have to do dependent texture reads in the fragment shader.
   if (kTruekNumberOfOptimizedOffsets > kNumberOfOptimizedOffsets) {
-#if GLFC_IOS
-    shader_string.append(R"(
-  highp vec2 singleStepOffset = vec2(texelWidthOffset, texelHeightOffset);)");
-#else
     shader_string.append(R"(
   vec2 singleStepOffset = vec2(texelWidthOffset, texelHeightOffset);)");
-#endif
 
     const char* kInnerTextureLoopFormat = R"(
   sum += texture2D(inputImageTexture, blurCoordinates[0] + singleStepOffset * %f) * %f;
@@ -189,9 +195,9 @@ void main() {
 }
 
 std::string GaussianBlurFilter::GetVertexShader() const {
-  const int kBlurRadius = std::round(blur_radius_ * device_pixel_ratio_);
+  const int kBlurRadius = std::round(blur_radius_ * device_pixel_ratio());
   if (kBlurRadius <= 0) return "";
-  const float kSigma = sigma_ * device_pixel_ratio_;
+  const float kSigma = sigma_ * device_pixel_ratio();
 
   // First, generate the normal Gaussian weights for a given `sigma_`.
   const int kNumberOfStandardGaussianWeights = kBlurRadius + 2;
@@ -236,8 +242,9 @@ std::string GaussianBlurFilter::GetVertexShader() const {
 
   std::string shader_string;
   // Header
-  const char* kHeaderFormat = \
-R"(attribute vec4 position;
+  const char* kHeaderFormat = R"(
+precision mediump float;
+attribute vec4 position;
 attribute vec2 inputTextureCoordinate;
 
 uniform float texelWidthOffset;
@@ -286,58 +293,18 @@ void main() {
   return shader_string;
 }
 
-void GaussianBlurFilter::Render(const GLuint input_texture,
-                                const int width, const int height,
-                                const float device_pixel_ratio) {
-  device_pixel_ratio_ = device_pixel_ratio;
-  // Initializes the intermediate framebuffer.
-  Framebuffer framebuffer(width * device_pixel_ratio,
-                          height * device_pixel_ratio);
-  if (!framebuffer.Init()) {
-#ifdef DEBUG
-    fprintf(stderr, "!! Failed to initialize framebuffer.\n");
-#endif
-    return;
-  }
-
-  // Initializes the program with shaders.
-  Program program;
-  if (!program.Init(GetVertexShader(), GetFragmentShader())) {
-#ifdef DEBUG
-    fprintf(stderr, "!! Failed to initialize program.\n");
-#endif
-    return;
-  }
-
-  // First pass. Applies Gaussian blur to the input texture for horizontal
-  // direction.
-  framebuffer.Bind();
-  texel_width_offset_ = texel_spacing_multiplier_ / framebuffer.width();
-  texel_height_offset_ = 0;
-  SetUniforms(program.program());
-  program.Render(input_texture);
-
-  // Second pass. Applies Gaussian blur to the `framebuffer`'s internal texture
-  // for vertical direction.
-  texel_width_offset_ = 0;
-  texel_height_offset_ = texel_spacing_multiplier_ / framebuffer.height();
-  SetUniforms(program.program());
-  framebuffer.UpdateTexture(&program);
-  program.Finalize();
-  framebuffer.Unbind();
-
-  // Renders the current framebuffer object.
-  framebuffer.Render();
-}
-
-void GaussianBlurFilter::SetUniforms(GLuint program) const {
+void GaussianBlurFilter::SetUniforms(Program* program) const {
   GLint texel_width_offset_uniform = \
-      glGetUniformLocation(program, "texelWidthOffset");
+      glGetUniformLocation(program->program(), "texelWidthOffset");
   glUniform1f(texel_width_offset_uniform, texel_width_offset_);
 
   GLint texel_height_offset_uniform = \
-      glGetUniformLocation(program, "texelHeightOffset");
+      glGetUniformLocation(program->program(), "texelHeightOffset");
   glUniform1f(texel_height_offset_uniform, texel_height_offset_);
+}
+
+bool GaussianBlurFilter::ShouldUpdateShaders() const {
+  return should_update_shaders_;
 }
 
 }  // namespace glfc

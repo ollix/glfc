@@ -35,21 +35,42 @@ class GaussianBlurFilter : public Filter {
   GaussianBlurFilter();
   ~GaussianBlurFilter();
 
-  // Inherited from `Filter` class.
-  void Render(const GLuint input_texture, const int width,
-              const int height, const float device_pixel_ratio) final;
-
   // Setters and accessors.
   float blur_radius() const { return blur_radius_; }
-  void set_blur_radius(const float blur_radius) { blur_radius_ = blur_radius; }
+  void set_blur_radius(const float blur_radius) {
+    if (blur_radius != blur_radius_) {
+      blur_radius_ = blur_radius;
+      should_update_shaders_ = true;
+    }
+  }
   float sigma() const { return sigma_; }
-  void set_sigma(const float sigma) { sigma_ = sigma; }
+  void set_sigma(const float sigma) {
+    if (sigma != sigma_) {
+      sigma_ = sigma;
+      should_update_shaders_ = true;
+    }
+  }
   float texel_spacing_multiplier() const { return texel_spacing_multiplier_; }
   void set_texel_spacing_multiplier(const float texel_spacing_multiplier) {
-    texel_spacing_multiplier_ = texel_spacing_multiplier;
+    if (texel_spacing_multiplier != texel_spacing_multiplier_) {
+      texel_spacing_multiplier_ = texel_spacing_multiplier;
+      should_update_shaders_ = true;
+    }
   }
 
  private:
+  virtual void set_device_pixel_ratio(const float ratio) final {
+    if (ratio != device_pixel_ratio()) {
+      Filter::set_device_pixel_ratio(ratio);
+      should_update_shaders_ = true;
+    }
+  }
+
+  // Inherited from `Filter` class.
+  virtual void ApplyFilterToFramebuffer(const GLuint input_texture,
+                                        Program* program,
+                                        Framebuffer* framebuffer) final;
+
   // Inherited from `Filter` class.
   std::string GetFragmentShader() const final;
 
@@ -57,14 +78,13 @@ class GaussianBlurFilter : public Filter {
   std::string GetVertexShader() const final;
 
   // Inherited from `Filter` class.
-  void SetUniforms(GLuint program) const final;
+  virtual void SetUniforms(Program* program) const final;
+
+  // Inherited from `Filter` class.
+  virtual bool ShouldUpdateShaders() const final;
 
   // The radius in points to use for the blur effect, with a default of 2.
   float blur_radius_;
-
-  // Indicates the ratio between physical pixels and logical pixels. This value
-  // will be updated whenever `Render()` is called. The default value is 1.
-  float device_pixel_ratio_;
 
   // The sigma variable related to points used in Gaussian distribution
   // function for calculating the Gaussian weights.
@@ -80,6 +100,9 @@ class GaussianBlurFilter : public Filter {
 
   // Indicates the horizontal offset of a single step used in the vertex shader.
   float texel_width_offset_;
+
+  // Indicates whether the shaders should update.
+  bool should_update_shaders_;
 
   DISALLOW_COPY_AND_ASSIGN(GaussianBlurFilter);
 };

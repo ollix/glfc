@@ -52,7 +52,11 @@ class Program {
   // binded framebuffer.
   void Render(const GLuint input_texture);
 
+  // Uses the program.
+  void Use();
+
   // Accessors.
+  bool is_initialized() const { return is_initialized_; }
   GLuint program() const { return program_; }
 
  private:
@@ -70,6 +74,9 @@ class Program {
 
   // The index buffer object name.
   GLuint index_buffer_;
+
+  // Indicates if the program has been initialized.
+  bool is_initialized_;
 
   // The location of the `position` attribute defined in the vertex shader.
   GLint position_attribute_;

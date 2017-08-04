@@ -25,17 +25,6 @@
 namespace {
 
 const char* kVertexShader =
-#ifdef GLFC_IOS
-R"(attribute vec4 position;
-attribute vec2 inputTextureCoordinate;
-
-varying highp vec2 textureCoordinate;
-
-void main() {
-  textureCoordinate = inputTextureCoordinate;
-  gl_Position = position;
-})";
-#else
 R"(attribute vec4 position;
 attribute vec2 inputTextureCoordinate;
 
@@ -45,39 +34,48 @@ void main() {
   textureCoordinate = inputTextureCoordinate;
   gl_Position = position;
 })";
-#endif
 
-const char* kFragmentShader =
-#ifdef GLFC_IOS
-R"(uniform sampler2D inputImageTexture;
-varying highp vec2 textureCoordinate;
+const char* kFragmentShader = R"(uniform sampler2D inputImageTexture;
+varying mediump vec2 textureCoordinate;
 
 void main() {
   gl_FragColor = texture2D(inputImageTexture, textureCoordinate);
 })";
-#else
-R"(uniform sampler2D inputImageTexture;
-varying vec2 textureCoordinate;
-
-void main() {
-  gl_FragColor = texture2D(inputImageTexture, textureCoordinate);
-})";
-#endif
 
 }  // namespace
 
 namespace glfc {
 
 Framebuffer::Framebuffer(const int width, const int height)
-    : framebuffer_(0), height_(height), renderbuffer_(0),
-      texture_(0), width_(width) {
+    : framebuffer_(0), height_(height), is_initialized_(false),
+      program_(nullptr), renderbuffer_(0), texture_(0), width_(width) {
 }
 
 Framebuffer::~Framebuffer() {
-  Reset();
+  if (is_initialized_)
+    Finalize();
+
+  if (program_ != nullptr)
+    delete program_;
 }
 
 bool Framebuffer::Init() {
+  if (is_initialized_) {
+    Finalize();
+  }
+
+  if (program_ == nullptr) {
+    program_ = new Program;
+    if (!program_->Init(kVertexShader, kFragmentShader)) {
+      delete program_;
+      program_ = nullptr;
+  #if DEBUG
+      fprintf(stderr, "!! Failed to initialize program for framebuffer.\n");
+  #endif
+      return;
+    }
+  }
+
   // Remembers the current framebuffer and renderbuffer that will be restored
   // in the end of this method.
   GLint original_framebuffer;
@@ -112,11 +110,9 @@ bool Framebuffer::Init() {
   const bool kResult = glCheckFramebufferStatus(GL_FRAMEBUFFER) == \
                        GL_FRAMEBUFFER_COMPLETE;
   if (kResult) {
-    glViewport(0, 0, width_, height_);
-    glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    is_initialized_ = true;
   } else {
-    Reset();
+    Finalize();
   }
   glBindFramebuffer(GL_FRAMEBUFFER, original_framebuffer);
   glBindRenderbuffer(GL_RENDERBUFFER, original_renderbuffer);
@@ -138,19 +134,13 @@ void Framebuffer::Bind() {
   glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-void Framebuffer::Render() const {
-  Program program;
-  if (!program.Init(kVertexShader, kFragmentShader)) {
-#if DEBUG
-    fprintf(stderr, "!! Failed to initialize program for framebuffer.\n");
-#endif
-    return;
-  }
-  program.Render(texture_);
-  program.Finalize();
+void Framebuffer::Clear() {
+  glViewport(0, 0, width_, height_);
+  glClearColor(0, 0, 0, 0);
+  glClear(GL_COLOR_BUFFER_BIT);
 }
 
-void Framebuffer::Reset() {
+void Framebuffer::Finalize() {
   if (framebuffer_ > 0) {
     glDeleteFramebuffers(1, &framebuffer_);
     framebuffer_ = 0;
@@ -163,6 +153,12 @@ void Framebuffer::Reset() {
     glDeleteTextures(1, &texture_);
     texture_ = 0;
   }
+  is_initialized_ = false;
+}
+
+void Framebuffer::Render() const {
+  program_->Use();
+  program_->Render(texture_);
 }
 
 void Framebuffer::Unbind() const {

@@ -25,6 +25,9 @@
 
 namespace glfc {
 
+class Framebuffer;
+class Program;
+
 // This is the base class of all supported filters.
 class Filter {
  public:
@@ -35,8 +38,23 @@ class Filter {
   // framebuffer that is currently binded to OpenGL. This method is designed
   // specifically for one pass rendering. A `Filter` subclass can override
   // this method to implement two pass rendering or combine multiple filters.
-  virtual void Render(const GLuint input_texture, const int width,
-                      const int height, const float device_pixel_ratio);
+  bool Render(const GLuint input_texture, const int width,
+              const int height, const float device_pixel_ratio);
+
+ protected:
+  // Applies the filter to the specified `framebuffer`.
+  virtual void ApplyFilterToFramebuffer(const GLuint input_texture,
+                                        Program* program,
+                                        Framebuffer* framebuffer);
+
+  // Returns `true` if the corresponded shaders should update.
+  virtual bool ShouldUpdateShaders() const { return false; }
+
+  // Setters and accessors.
+  float device_pixel_ratio() const { return device_pixel_ratio_; }
+  virtual void set_device_pixel_ratio(const float device_pixel_ratio) {
+    device_pixel_ratio_ = device_pixel_ratio;
+  }
 
  private:
   // Returns the fragment shader string. The returned shader must declare the
@@ -48,7 +66,17 @@ class Filter {
   virtual std::string GetVertexShader() const {}
 
   // Sets uniforms used in shaders except the `inputImageTexture` one.
-  virtual void SetUniforms(GLuint program) const {}
+  virtual void SetUniforms(Program* program) const {}
+
+  // Indicates the ratio between physical pixels and logical pixels. This value
+  // will be updated whenever `Render()` is called. The default value is 1.
+  float device_pixel_ratio_;
+
+  // The strong reference to the framebuffer that holds the result.
+  Framebuffer* framebuffer_;
+
+  // The strong reference to the program that utilizing filter shaders.
+  Program* program_;
 
   DISALLOW_COPY_AND_ASSIGN(Filter);
 };
