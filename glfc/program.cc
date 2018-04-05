@@ -167,7 +167,7 @@ void Program::BindBufferObjects() {
       program_, "inputTextureCoordinate");
   glEnableVertexAttribArray(texture_coordinate_attribute_);
   glVertexAttribPointer(
-      texture_coordinate_attribute_, 2, GL_FLOAT, GL_FLOAT, sizeof(Vertex),
+      texture_coordinate_attribute_, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
       reinterpret_cast<GLvoid*>(sizeof(FramebufferCoordinate)));
 
   // Binds the index buffer object.

@@ -82,6 +82,7 @@ bool Filter::Render(const GLuint input_texture, const int width,
 
   // Renders the current framebuffer object.
   framebuffer_->Render();
+  return true;
 }
 
 }  // namespace glfc

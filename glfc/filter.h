@@ -59,11 +59,11 @@ class Filter {
  private:
   // Returns the fragment shader string. The returned shader must declare the
   // `sampler2D inputImageTexture` uniform.
-  virtual std::string GetFragmentShader() const {}
+  virtual std::string GetFragmentShader() const { return ""; }
 
   // Returns the vertex shader string. The returned shader must declare both
   // `vec4 position` and `vec2 inputTextureCoordinate` attributes.
-  virtual std::string GetVertexShader() const {}
+  virtual std::string GetVertexShader() const { return ""; }
 
   // Sets uniforms used in shaders except the `inputImageTexture` one.
   virtual void SetUniforms(Program* program) const {}

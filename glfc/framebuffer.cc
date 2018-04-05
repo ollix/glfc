@@ -72,7 +72,7 @@ bool Framebuffer::Init() {
   #if DEBUG
       fprintf(stderr, "!! Failed to initialize program for framebuffer.\n");
   #endif
-      return;
+      return false;
     }
   }
 
