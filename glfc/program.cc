@@ -78,8 +78,8 @@ GLuint CompileShader(const GLenum shader_type, std::string source) {
 
 namespace glfc {
 
-Program::Program() : fragment_shader_(0), is_initialized_(false), program_(0),
-                     vertex_shader_(0) {
+Program::Program() : array_buffer_(0), fragment_shader_(0), index_buffer_(0),
+                     is_initialized_(false), program_(0), vertex_shader_(0) {
 }
 
 Program::~Program() {
@@ -95,13 +95,13 @@ bool Program::Init(const std::string vertex_shader_source,
 
   program_ = glCreateProgram();
   if (program_ == 0) {
-    Reset();
+    Finalize();
     return false;
   }
 
   vertex_shader_ = CompileShader(GL_VERTEX_SHADER, vertex_shader_source);
   if (vertex_shader_ == 0) {
-    Reset();
+    Finalize();
 #ifdef DEBUG
     GLFC_LOG("--- Vertex Shader Source ---\n%s\n--- END ---\n",
             vertex_shader_source.c_str());
@@ -110,7 +110,7 @@ bool Program::Init(const std::string vertex_shader_source,
   }
   fragment_shader_ = CompileShader(GL_FRAGMENT_SHADER, fragment_shader_source);
   if (fragment_shader_ == 0) {
-    Reset();
+    Finalize();
 #ifdef DEBUG
     GLFC_LOG("--- Fragment Shader Source ---\n%s\n--- END ---\n",
             fragment_shader_source.c_str());
@@ -124,7 +124,7 @@ bool Program::Init(const std::string vertex_shader_source,
   GLint status;
   glGetProgramiv(program_, GL_LINK_STATUS, &status);
   if (status != GL_TRUE) {
-    Reset();
+    Finalize();
 #ifdef DEBUG
     GLFC_LOG("!! Failed to create program.\n");
 #endif
@@ -133,6 +133,10 @@ bool Program::Init(const std::string vertex_shader_source,
   GLint current_program;
   glGetIntegerv(GL_CURRENT_PROGRAM, &current_program);
   glUseProgram(program_);
+  position_attribute_ = glGetAttribLocation(program_, "position");
+  texture_coordinate_attribute_ = glGetAttribLocation(
+      program_, "inputTextureCoordinate");
+  texture_uniform_ = glGetUniformLocation(program_, "inputImageTexture");
   glGenBuffers(1, &array_buffer_);
   glGenBuffers(1, &index_buffer_);
   glUseProgram(current_program);
@@ -140,65 +144,13 @@ bool Program::Init(const std::string vertex_shader_source,
   return true;
 }
 
-void Program::Use() {
-  if (!is_initialized_) {
-#ifdef DEBUG
-    GLFC_LOG("!! Cannot use program because it's not initialized.\n");
-    return;
-#endif
-  }
-  glUseProgram(program_);
-  BindBufferObjects();
-}
-
-void Program::BindBufferObjects() {
-  // Binds the array buffer object.
-  glBindBuffer(GL_ARRAY_BUFFER, array_buffer_);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(kArrayBuffer), kArrayBuffer,
-               GL_STATIC_DRAW);
-
-  // Binds the `position` attribute.
-  position_attribute_ = glGetAttribLocation(program_, "position");
-  glEnableVertexAttribArray(position_attribute_);
-  glVertexAttribPointer(position_attribute_, 2, GL_FLOAT, GL_FALSE,
-                        sizeof(Vertex), reinterpret_cast<GLvoid*>(0));
-
-  // Binds the `inputTextureCoordinate` attribute.
-  texture_coordinate_attribute_ = glGetAttribLocation(
-      program_, "inputTextureCoordinate");
-  glEnableVertexAttribArray(texture_coordinate_attribute_);
-  glVertexAttribPointer(
-      texture_coordinate_attribute_, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
-      reinterpret_cast<GLvoid*>(sizeof(FramebufferCoordinate)));
-
-  // Binds the index buffer object.
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int) * kIndexBufferCount,
-               kIndexBuffer, GL_STATIC_DRAW);
-}
-
 void Program::Finalize() {
-  glDisableVertexAttribArray(position_attribute_);
-  glDisableVertexAttribArray(texture_coordinate_attribute_);
-  glDeleteBuffers(1, &array_buffer_);
-  glDeleteBuffers(1, &index_buffer_);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  Reset();
-  is_initialized_ = false;
-}
-
-void Program::Render(const GLuint input_texture) {
-  // Sets the `texture` uniform.
-  GLint texture_uniform = glGetUniformLocation(program_, "inputImageTexture");
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, input_texture);
-  glUniform1i(texture_uniform, 0);
-
-  glDrawElements(GL_TRIANGLES, static_cast<GLsizeiptr>(kIndexBufferCount),
-                 GL_UNSIGNED_INT, reinterpret_cast<GLvoid*>(0));
-}
-
-void Program::Reset() {
+  if (array_buffer_ > 0) {
+    glDeleteBuffers(1, &array_buffer_);
+  }
+  if (index_buffer_ > 0) {
+    glDeleteBuffers(1, &index_buffer_);
+  }
   if (vertex_shader_ > 0) {
     glDeleteShader(vertex_shader_);
     vertex_shader_ = 0;
@@ -211,6 +163,52 @@ void Program::Reset() {
     glDeleteProgram(program_);
     program_ = 0;
   }
+  is_initialized_ = false;
+}
+
+void Program::Render(const GLuint input_texture) {
+  // Sets the texture uniform.
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, input_texture);
+  glUniform1i(texture_uniform_, 0);
+
+  glDrawElements(GL_TRIANGLES, static_cast<GLsizeiptr>(kIndexBufferCount),
+                 GL_UNSIGNED_INT, reinterpret_cast<GLvoid*>(0));
+
+  glDisableVertexAttribArray(position_attribute_);
+  glDisableVertexAttribArray(texture_coordinate_attribute_);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  glUseProgram(0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glFlush();
+}
+
+void Program::Use() {
+  glUseProgram(program_);
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  glEnable(GL_BLEND);
+
+  // Binds the array buffer object.
+  glBindBuffer(GL_ARRAY_BUFFER, array_buffer_);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(kArrayBuffer), kArrayBuffer,
+               GL_STATIC_DRAW);
+
+  // Binds the `position` attribute.
+  glEnableVertexAttribArray(position_attribute_);
+  glVertexAttribPointer(position_attribute_, 2, GL_FLOAT, GL_FALSE,
+                        sizeof(Vertex), reinterpret_cast<GLvoid*>(0));
+
+  // Binds the `inputTextureCoordinate` attribute.
+  glEnableVertexAttribArray(texture_coordinate_attribute_);
+  glVertexAttribPointer(
+      texture_coordinate_attribute_, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),
+      reinterpret_cast<GLvoid*>(sizeof(FramebufferCoordinate)));
+
+  // Binds the index buffer object.
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer_);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int) * kIndexBufferCount,
+               kIndexBuffer, GL_STATIC_DRAW);
 }
 
 }  // namespace glfc

@@ -51,9 +51,6 @@ class Framebuffer {
   // Unbinds the framebuffer object and resotres the original one.
   void Unbind() const;
 
-  // Updates the internal texture by applying `program`'s shaders.
-  void UpdateTexture(Program* program);
-
   // Accessors.
   const int height() const { return height_; }
   GLuint texture() const { return texture_; }

@@ -44,12 +44,10 @@ class Program {
   // another `Init()` call.
   bool Init(const std::string vertex_shader, const std::string fragment_shader);
 
-  // Finalizes the program. The `Init()` method must be called before calling
-  // this method.
+  // Finalizes the program.
   void Finalize();
 
-  // Renders the `input_texture` with configured shaders to the currently
-  // binded framebuffer.
+  // Renders the `input_texture` to the currently binded framebuffer.
   void Render(const GLuint input_texture);
 
   // Uses the program.
@@ -60,12 +58,6 @@ class Program {
   GLuint program() const { return program_; }
 
  private:
-  // Binds both array buffer and index buffer objects.
-  void BindBufferObjects();
-
-  // Resets the states.
-  void Reset();
-
   // The array buffer object name.
   GLuint array_buffer_;
 
@@ -87,6 +79,9 @@ class Program {
   // The location of the `inputTextureCoordinate` attribute defined in the
   // vertex shader.
   GLint texture_coordinate_attribute_;
+
+  // Keeps the uniform location of the input texture.
+  GLint texture_uniform_;
 
   // The vertex shader name.
   GLuint vertex_shader_;

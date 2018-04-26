@@ -48,6 +48,7 @@ void GaussianBlurFilter::ApplyFilterToFramebuffer(const GLuint input_texture,
   // direction.
   texel_width_offset_ = texel_spacing_multiplier_ / framebuffer->width();
   texel_height_offset_ = 0;
+  program->Use();
   SetUniforms(program);
   program->Render(input_texture);
 
@@ -55,8 +56,10 @@ void GaussianBlurFilter::ApplyFilterToFramebuffer(const GLuint input_texture,
   // for vertical direction.
   texel_width_offset_ = 0;
   texel_height_offset_ = texel_spacing_multiplier_ / framebuffer->height();
+  program->Use();
+  glBlendFunc(GL_ONE, GL_ZERO);
   SetUniforms(program);
-  framebuffer->UpdateTexture(program);
+  program->Render(framebuffer->texture());
 }
 
 std::string GaussianBlurFilter::GetFragmentShader() const {

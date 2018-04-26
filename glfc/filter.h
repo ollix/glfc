@@ -38,8 +38,8 @@ class Filter {
   // framebuffer that is currently binded to OpenGL. This method is designed
   // specifically for one pass rendering. A `Filter` subclass can override
   // this method to implement two pass rendering or combine multiple filters.
-  bool Render(const GLuint input_texture, const int width,
-              const int height, const float device_pixel_ratio);
+  bool Render(const GLuint input_texture, const float width,
+              const float height, const float device_pixel_ratio);
 
  protected:
   // Applies the filter to the specified `framebuffer`.
@@ -59,11 +59,11 @@ class Filter {
  private:
   // Returns the fragment shader string. The returned shader must declare the
   // `sampler2D inputImageTexture` uniform.
-  virtual std::string GetFragmentShader() const { return ""; }
+  virtual std::string GetFragmentShader() const = 0;
 
   // Returns the vertex shader string. The returned shader must declare both
   // `vec4 position` and `vec2 inputTextureCoordinate` attributes.
-  virtual std::string GetVertexShader() const { return ""; }
+  virtual std::string GetVertexShader() const = 0;
 
   // Sets uniforms used in shaders except the `inputImageTexture` one.
   virtual void SetUniforms(Program* program) const {}

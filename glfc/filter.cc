@@ -41,12 +41,13 @@ Filter::~Filter() {
 void Filter::ApplyFilterToFramebuffer(const GLuint input_texture,
                                       Program* program,
                                       Framebuffer* framebuffer) {
+  program->Use();
   SetUniforms(program);
   program->Render(input_texture);
 }
 
-bool Filter::Render(const GLuint input_texture, const int width,
-                    const int height, const float device_pixel_ratio) {
+bool Filter::Render(const GLuint input_texture, const float width,
+                    const float height, const float device_pixel_ratio) {
   const int kWidth = width * device_pixel_ratio;
   const int kHeight = height * device_pixel_ratio;
   set_device_pixel_ratio(device_pixel_ratio);
@@ -77,7 +78,6 @@ bool Filter::Render(const GLuint input_texture, const int width,
   // Applies the filter to the framebuffer object.
   framebuffer_->Bind();
   framebuffer_->Clear();
-  program_->Use();
   ApplyFilterToFramebuffer(input_texture, program_, framebuffer_);
   framebuffer_->Unbind();
 

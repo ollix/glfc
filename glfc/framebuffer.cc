@@ -88,12 +88,25 @@ bool Framebuffer::Init() {
   // Creates the texture.
   glGenTextures(1, &texture_);
   glBindTexture(GL_TEXTURE_2D, texture_);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+#ifndef GLFC_GLES2
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, width_);
+	glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+	glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+#endif
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, GL_RGBA,
                GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+#ifndef GLFC_GLES2
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+	glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+#endif
+  glBindTexture(GL_TEXTURE_2D, 0);
 
   // Creates the framebuffer object.
   glGenFramebuffers(1, &framebuffer_);
@@ -160,6 +173,7 @@ void Framebuffer::Finalize() {
 
 void Framebuffer::Render() const {
   program_->Use();
+  glBlendFunc(GL_ONE, GL_ZERO);
   program_->Render(texture_);
 }
 
@@ -171,14 +185,6 @@ void Framebuffer::Unbind() const {
   } else {
     glDisable(GL_BLEND);
   }
-}
-
-void Framebuffer::UpdateTexture(Program* program) {
-  // Makes sure the internal texture is attached to the framebuffer object.
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                         texture_, 0);
-  glBlendFunc(GL_ONE, GL_ZERO);
-  program->Render(texture_);
 }
 
 }  // namespace glfc
