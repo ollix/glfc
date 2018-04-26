@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <cstdio>
 
+#include "glfc/base.h"
 #include "glfc/opengl_hook.h"
 
 namespace {
@@ -64,7 +65,7 @@ GLuint CompileShader(const GLenum shader_type, std::string source) {
     GLchar* message = reinterpret_cast<GLchar*>(std::malloc(info_log_length));
     glGetShaderInfoLog(shader_handle, static_cast<GLsizei>(info_log_length), 0,
                        message);
-    fprintf(stderr, "!! Failed to compile shader: %s", message);
+    GLFC_LOG("!! Failed to compile shader: %s", message);
     std::free(message);
 #endif
     glDeleteShader(shader_handle);
@@ -101,8 +102,8 @@ bool Program::Init(const std::string vertex_shader_source,
   vertex_shader_ = CompileShader(GL_VERTEX_SHADER, vertex_shader_source);
   if (vertex_shader_ == 0) {
     Reset();
-#if DEBUG
-    fprintf(stderr, "--- Vertex Shader Source ---\n%s\n--- END ---\n",
+#ifdef DEBUG
+    GLFC_LOG("--- Vertex Shader Source ---\n%s\n--- END ---\n",
             vertex_shader_source.c_str());
 #endif
     return false;
@@ -110,8 +111,8 @@ bool Program::Init(const std::string vertex_shader_source,
   fragment_shader_ = CompileShader(GL_FRAGMENT_SHADER, fragment_shader_source);
   if (fragment_shader_ == 0) {
     Reset();
-#if DEBUG
-    fprintf(stderr, "--- Fragment Shader Source ---\n%s\n--- END ---\n",
+#ifdef DEBUG
+    GLFC_LOG("--- Fragment Shader Source ---\n%s\n--- END ---\n",
             fragment_shader_source.c_str());
 #endif
     return false;
@@ -124,8 +125,8 @@ bool Program::Init(const std::string vertex_shader_source,
   glGetProgramiv(program_, GL_LINK_STATUS, &status);
   if (status != GL_TRUE) {
     Reset();
-#if DEBUG
-    fprintf(stderr, "!! Failed to create program.\n");
+#ifdef DEBUG
+    GLFC_LOG("!! Failed to create program.\n");
 #endif
     return false;
   }
@@ -142,7 +143,7 @@ bool Program::Init(const std::string vertex_shader_source,
 void Program::Use() {
   if (!is_initialized_) {
 #ifdef DEBUG
-    fprintf(stderr, "!! Cannot use program because it's not initialized.\n");
+    GLFC_LOG("!! Cannot use program because it's not initialized.\n");
     return;
 #endif
   }

@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <string>
 
+#include "glfc/base.h"
 #include "glfc/framebuffer.h"
 #include "glfc/opengl_hook.h"
 #include "glfc/program.h"
@@ -58,7 +59,7 @@ bool Filter::Render(const GLuint input_texture, const int width,
     framebuffer_ = new Framebuffer(kWidth, kHeight);
     if (!framebuffer_->Init()) {
 #ifdef DEBUG
-      fprintf(stderr, "!! Failed to initialize framebuffer.\n");
+      GLFC_LOG("!! Failed to initialize framebuffer.\n");
 #endif
       return false;
     }
@@ -67,7 +68,7 @@ bool Filter::Render(const GLuint input_texture, const int width,
   if (!program_->is_initialized() || ShouldUpdateShaders()) {
     if (!program_->Init(GetVertexShader(), GetFragmentShader())) {
 #ifdef DEBUG
-      fprintf(stderr, "!! Failed to initialize program.\n");
+      GLFC_LOG("!! Failed to initialize program.\n");
       return false;
 #endif
     }

@@ -19,13 +19,14 @@
 
 #include <cstdio>
 
+#include "glfc/base.h"
 #include "glfc/opengl_hook.h"
 #include "glfc/program.h"
 
 namespace {
 
-const char* kVertexShader =
-R"(attribute vec4 position;
+const char* kVertexShader = R"(
+attribute vec4 position;
 attribute vec2 inputTextureCoordinate;
 
 varying vec2 textureCoordinate;
@@ -35,7 +36,8 @@ void main() {
   gl_Position = position;
 })";
 
-const char* kFragmentShader = R"(uniform sampler2D inputImageTexture;
+const char* kFragmentShader = R"(
+uniform sampler2D inputImageTexture;
 varying mediump vec2 textureCoordinate;
 
 void main() {
@@ -69,8 +71,8 @@ bool Framebuffer::Init() {
     if (!program_->Init(kVertexShader, kFragmentShader)) {
       delete program_;
       program_ = nullptr;
-  #if DEBUG
-      fprintf(stderr, "!! Failed to initialize program for framebuffer.\n");
+  #ifdef DEBUG
+      GLFC_LOG("!! Failed to initialize program for framebuffer.\n");
   #endif
       return false;
     }

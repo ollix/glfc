@@ -18,7 +18,19 @@
 #ifndef GLFC_BASE_H_
 #define GLFC_BASE_H_
 
+#if defined GLFC_APPLE
+#include <cstdio>
+#elif defined GLFC_ANDROID
+#include <android/log.h>
+#endif
+
 namespace glfc {
+
+#if defined GLFC_APPLE
+#define GLFC_LOG(...) std::printf(__VA_ARGS__);
+#elif defined GLFC_ANDROID
+#define GLFC_LOG(...) __android_log_print(ANDROID_LOG_INFO, "glfc", __VA_ARGS__)
+#endif
 
 // A macro to disallow the copy constructor and `operator=` functions.
 // This should be used in the private section of a class interface.
