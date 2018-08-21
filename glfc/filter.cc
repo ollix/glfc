@@ -75,14 +75,7 @@ bool Filter::Render(const GLuint input_texture, const float width,
     }
   }
 
-  // Applies the filter to the framebuffer object.
-  framebuffer_->Bind();
-  framebuffer_->Clear();
   ApplyFilterToFramebuffer(input_texture, program_, framebuffer_);
-  framebuffer_->Unbind();
-
-  // Renders the current framebuffer object.
-  framebuffer_->Render();
   return true;
 }
 

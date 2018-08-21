@@ -46,11 +46,14 @@ void GaussianBlurFilter::ApplyFilterToFramebuffer(const GLuint input_texture,
 
   // First pass. Applies Gaussian blur to the input texture for horizontal
   // direction.
+  framebuffer->Bind();
+  framebuffer->Clear();
   texel_width_offset_ = texel_spacing_multiplier_ / framebuffer->width();
   texel_height_offset_ = 0;
   program->Use();
   SetUniforms(program);
   program->Render(input_texture);
+  framebuffer->Unbind();
 
   // Second pass. Applies Gaussian blur to the `framebuffer`'s internal texture
   // for vertical direction.
