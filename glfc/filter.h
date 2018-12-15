@@ -32,7 +32,7 @@ class Program;
 class Filter {
  public:
   Filter();
-  ~Filter();
+  virtual ~Filter();
 
   // Renders the filter with `input_texture` and its dimension to the
   // framebuffer that is currently binded to OpenGL. This method is designed
