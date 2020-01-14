@@ -4,6 +4,11 @@ __glfc__ is a collection of OpenGL filters that can be easily applied to an
 existing texture. Note that this project is still at early stage and may change
 the design pattern significantly.
 
+### Donation
+If you found this project useful, please consider donating to show your support ❤️ 
+
+[![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=3366Q3AVUJLTQ)
+
 # Development
 The code is written in C++11 and the coding style strongly
 follows the [Google C++ Style Guide](http://google.github.io/styleguide/cppguide.html). All commits must pass
