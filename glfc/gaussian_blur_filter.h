@@ -104,7 +104,7 @@ class GaussianBlurFilter : public Filter {
   // Indicates whether the shaders should update.
   bool should_update_shaders_;
 
-  DISALLOW_COPY_AND_ASSIGN(GaussianBlurFilter);
+  GLFC_DISALLOW_COPY_AND_ASSIGN(GaussianBlurFilter);
 };
 
 }  // namespace glfc

@@ -86,7 +86,7 @@ class Program {
   // The vertex shader name.
   GLuint vertex_shader_;
 
-  DISALLOW_COPY_AND_ASSIGN(Program);
+  GLFC_DISALLOW_COPY_AND_ASSIGN(Program);
 };
 
 }  // namespace glfc

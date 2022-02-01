@@ -103,7 +103,7 @@ class Framebuffer {
   // The name of the original framebuffer before binding.
   GLint original_framebuffer_;
 
-  DISALLOW_COPY_AND_ASSIGN(Framebuffer);
+  GLFC_DISALLOW_COPY_AND_ASSIGN(Framebuffer);
 };
 
 }  // namespace glfc

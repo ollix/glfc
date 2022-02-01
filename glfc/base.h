@@ -34,9 +34,9 @@ namespace glfc {
 
 // A macro to disallow the copy constructor and `operator=` functions.
 // This should be used in the private section of a class interface.
-#define DISALLOW_COPY_AND_ASSIGN(TypeName) \
-  TypeName(const TypeName&);               \
-  void operator=(const TypeName&)
+#define GLFC_DISALLOW_COPY_AND_ASSIGN(TypeName) \
+  TypeName(const TypeName &); \
+  void operator=(const TypeName &)
 
 }  // namespace glfc
 

@@ -78,7 +78,7 @@ class Filter {
   // The strong reference to the program that utilizing filter shaders.
   Program* program_;
 
-  DISALLOW_COPY_AND_ASSIGN(Filter);
+  GLFC_DISALLOW_COPY_AND_ASSIGN(Filter);
 };
 
 }  // namespace glfc
