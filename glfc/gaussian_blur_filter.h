@@ -59,6 +59,8 @@ class GaussianBlurFilter : public Filter {
   }
 
  private:
+  friend class GaussianBlurShaderTest;
+
   virtual void set_device_pixel_ratio(const float ratio) final {
     if (ratio != device_pixel_ratio()) {
       Filter::set_device_pixel_ratio(ratio);

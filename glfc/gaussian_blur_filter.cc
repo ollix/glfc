@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 #include "glfc/framebuffer.h"
 #include "glfc/opengl_hook.h"
@@ -109,7 +110,7 @@ uniform sampler2D inputImageTexture;
 uniform float texelWidthOffset;
 uniform float texelHeightOffset;
 
-varying vec2 blurCoordinates[%lu];
+varying vec2 blurCoordinates[%d];
 
 void main() {
   vec4 sum = vec4(0.0);)";
@@ -117,9 +118,11 @@ void main() {
   const int kNumberOfBlurCoordinates = 1 + (kNumberOfOptimizedOffsets * 2);
   const int kHeaderLength = snprintf(NULL, 0, kHeaderFormat,
                                      kNumberOfBlurCoordinates) + 1;
-  char header[kHeaderLength];
-  snprintf(header, kHeaderLength, kHeaderFormat, kNumberOfBlurCoordinates);
-  shader_string.append(header);
+  // Reuse this buffer throughout generation; grow it only when necessary.
+  std::vector<char> format_buffer(kHeaderLength);
+  snprintf(format_buffer.data(), kHeaderLength, kHeaderFormat,
+           kNumberOfBlurCoordinates);
+  shader_string.append(format_buffer.data());
 
   // Inner texture loop.
   const char* kInnerTextureLoopFirstLineFormat = R"(
@@ -127,10 +130,11 @@ void main() {
   const int kInnerTextureLoopFirstLineLength = \
       snprintf(NULL, 0, kInnerTextureLoopFirstLineFormat,
       standard_gaussian_weights[0]) + 1;
-  char inner_texture_loop_first_line[kInnerTextureLoopFirstLineLength];
-  snprintf(inner_texture_loop_first_line, kInnerTextureLoopFirstLineLength,
+  format_buffer.resize(std::max(format_buffer.size(),
+      static_cast<std::size_t>(kInnerTextureLoopFirstLineLength)));
+  snprintf(format_buffer.data(), kInnerTextureLoopFirstLineLength,
            kInnerTextureLoopFirstLineFormat, standard_gaussian_weights[0]);
-  shader_string.append(inner_texture_loop_first_line);
+  shader_string.append(format_buffer.data());
 
   const char* kInnerTextureLoopFormat = R"(
   sum += texture2D(inputImageTexture, blurCoordinates[%d]) * %f;
@@ -150,10 +154,11 @@ void main() {
     const int kStringLength = snprintf(NULL, 0, kInnerTextureLoopFormat,
                                        kFirstIndex, kOptimizedWeight,
                                        kSecondIndex, kOptimizedWeight) + 1;
-    char string[kStringLength];
-    snprintf(string, kStringLength, kInnerTextureLoopFormat, kFirstIndex,
-             kOptimizedWeight, kSecondIndex, kOptimizedWeight);
-    shader_string.append(string);
+    format_buffer.resize(std::max(format_buffer.size(),
+                                 static_cast<std::size_t>(kStringLength)));
+    snprintf(format_buffer.data(), kStringLength, kInnerTextureLoopFormat,
+             kFirstIndex, kOptimizedWeight, kSecondIndex, kOptimizedWeight);
+    shader_string.append(format_buffer.data());
   }
 
   // If the number of required samples exceeds the amount we can pass in via
@@ -182,11 +187,12 @@ void main() {
         const int kStringLength = \
             snprintf(NULL, 0, kInnerTextureLoopFormat, kOptimizedOffset,
                      kOptimizedWeight, kOptimizedOffset, kOptimizedWeight) + 1;
-        char string[kStringLength];
-        snprintf(string, kStringLength, kInnerTextureLoopFormat,
+        format_buffer.resize(std::max(format_buffer.size(),
+                                     static_cast<std::size_t>(kStringLength)));
+        snprintf(format_buffer.data(), kStringLength, kInnerTextureLoopFormat,
                  kOptimizedOffset, kOptimizedWeight, kOptimizedOffset,
                  kOptimizedWeight);
-        shader_string.append(string);
+        shader_string.append(format_buffer.data());
       }
     }
   }
@@ -265,9 +271,11 @@ void main() {
   const int kNumberOfBlurCoordinates = 1 + (kNumberOfOptimizedOffsets * 2);
   const int kHeaderLength = snprintf(NULL, 0, kHeaderFormat,
                                      kNumberOfBlurCoordinates) + 1;
-  char header[kHeaderLength];
-  snprintf(header, kHeaderLength, kHeaderFormat, kNumberOfBlurCoordinates);
-  shader_string.append(header);
+  // Reuse the header buffer for every offset instead of allocating per row.
+  std::vector<char> format_buffer(kHeaderLength);
+  snprintf(format_buffer.data(), kHeaderLength, kHeaderFormat,
+           kNumberOfBlurCoordinates);
+  shader_string.append(format_buffer.data());
 
   // Inner offset loop.
   shader_string.append(R"(
@@ -284,10 +292,12 @@ void main() {
         snprintf(NULL, 0, kInnerOffsetLoopFormat, kFirstIndex,
                  kOptimizedGaussianOffset, kSecondIndex,
                  kOptimizedGaussianOffset) + 1;
-    char string[kStringLength];
-    snprintf(string, kStringLength, kInnerOffsetLoopFormat, kFirstIndex,
-             kOptimizedGaussianOffset, kSecondIndex, kOptimizedGaussianOffset);
-    shader_string.append(string);
+    format_buffer.resize(std::max(format_buffer.size(),
+                                 static_cast<std::size_t>(kStringLength)));
+    snprintf(format_buffer.data(), kStringLength, kInnerOffsetLoopFormat,
+             kFirstIndex, kOptimizedGaussianOffset, kSecondIndex,
+             kOptimizedGaussianOffset);
+    shader_string.append(format_buffer.data());
   }
 
   // Footer
