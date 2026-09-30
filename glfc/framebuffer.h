@@ -30,7 +30,9 @@ class Program;
 // designed to render to a texutre.
 class Framebuffer {
  public:
-  Framebuffer(const int width, const int height);
+  // Coverage targets contain premultiplied white only. Use RED storage where
+  // supported, otherwise keep RGBA. Colors/destination-alpha blends are invalid.
+  Framebuffer(const int width, const int height, bool coverage_only = false);
   ~Framebuffer();
 
   // Initializes the framebuffer object and corresponded renderbuffer and
@@ -55,10 +57,18 @@ class Framebuffer {
   const int height() const { return height_; }
   GLuint texture() const { return texture_; }
   const int width() const { return width_; }
+  bool coverage_only() const { return coverage_only_; }
+  bool uses_single_channel() const { return single_channel_; }
 
  private:
   // Resets the states.
   void Finalize();
+
+  static GLint SingleChannelInternalFormat();
+  bool InitWithFormat(bool single_channel);
+
+  const bool coverage_only_;
+  bool single_channel_ = false;
 
   // Keeps the original `GL_BLEND_DST_ALPHA` parameter when binding the
   // framebuffer so it can be restored when unbinding.

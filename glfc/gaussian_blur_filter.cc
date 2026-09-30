@@ -107,6 +107,7 @@ std::string GaussianBlurFilter::GetFragmentShader() const {
   const char* kHeaderFormat = R"(
 precision mediump float;
 uniform sampler2D inputImageTexture;
+uniform bool coverageOnly;
 uniform float texelWidthOffset;
 uniform float texelHeightOffset;
 
@@ -199,7 +200,7 @@ void main() {
 
   // Footer
   shader_string.append(R"(
-  gl_FragColor = sum;
+  gl_FragColor = coverageOnly ? vec4(sum.r) : sum;
 })");
 
   std::free(standard_gaussian_weights);
@@ -310,6 +311,8 @@ void main() {
 }
 
 void GaussianBlurFilter::SetUniforms(Program* program) const {
+  glUniform1i(glGetUniformLocation(program->program(), "coverageOnly"),
+              coverage_only());
   GLint texel_width_offset_uniform = \
       glGetUniformLocation(program->program(), "texelWidthOffset");
   glUniform1f(texel_width_offset_uniform, texel_width_offset_);

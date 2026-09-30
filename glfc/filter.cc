@@ -47,18 +47,23 @@ void Filter::ApplyFilterToFramebuffer(const GLuint input_texture,
 }
 
 bool Filter::Render(const GLuint input_texture, const float width,
-                    const float height, const float device_pixel_ratio) {
+                    const float height, const float device_pixel_ratio,
+                    bool coverage_only) {
   const int kWidth = width * device_pixel_ratio;
   const int kHeight = height * device_pixel_ratio;
   set_device_pixel_ratio(device_pixel_ratio);
+  coverage_only_ = coverage_only;
   if (framebuffer_ != nullptr &&
-      (framebuffer_->width() != kWidth || framebuffer_->height() != kHeight)) {
+      (framebuffer_->width() != kWidth || framebuffer_->height() != kHeight ||
+       framebuffer_->coverage_only() != coverage_only)) {
     delete framebuffer_;
     framebuffer_ = nullptr;
   }
   if (framebuffer_ == nullptr) {
-    framebuffer_ = new Framebuffer(kWidth, kHeight);
+    framebuffer_ = new Framebuffer(kWidth, kHeight, coverage_only);
     if (!framebuffer_->Init()) {
+      delete framebuffer_;
+      framebuffer_ = nullptr;
 #ifdef DEBUG
       GLFC_LOG("!! Failed to initialize framebuffer.\n");
 #endif
@@ -70,8 +75,8 @@ bool Filter::Render(const GLuint input_texture, const float width,
     if (!program_->Init(GetVertexShader(), GetFragmentShader())) {
 #ifdef DEBUG
       GLFC_LOG("!! Failed to initialize program.\n");
-      return false;
 #endif
+      return false;
     }
   }
 

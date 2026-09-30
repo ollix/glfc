@@ -38,8 +38,11 @@ class Filter {
   // framebuffer that is currently binded to OpenGL. This method is designed
   // specifically for one pass rendering. A `Filter` subclass can override
   // this method to implement two pass rendering or combine multiple filters.
+  // `coverage_only` requests single-channel scratch storage for white coverage.
+  // The subclass must replicate sampled red into alpha when using this mode.
   bool Render(const GLuint input_texture, const float width,
-              const float height, const float device_pixel_ratio);
+              const float height, const float device_pixel_ratio,
+              bool coverage_only = false);
 
  protected:
   // Applies the filter to the specified `framebuffer`.
@@ -52,6 +55,7 @@ class Filter {
 
   // Setters and accessors.
   float device_pixel_ratio() const { return device_pixel_ratio_; }
+  bool coverage_only() const { return coverage_only_; }
   virtual void set_device_pixel_ratio(const float device_pixel_ratio) {
     device_pixel_ratio_ = device_pixel_ratio;
   }
@@ -71,6 +75,7 @@ class Filter {
   // Indicates the ratio between physical pixels and logical pixels. This value
   // will be updated whenever `Render()` is called. The default value is 1.
   float device_pixel_ratio_;
+  bool coverage_only_ = false;
 
   // The strong reference to the framebuffer that holds the result.
   Framebuffer* framebuffer_;

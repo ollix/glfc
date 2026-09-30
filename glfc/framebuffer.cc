@@ -18,12 +18,16 @@
 #include "glfc/framebuffer.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "glfc/base.h"
 #include "glfc/opengl_hook.h"
 #include "glfc/program.h"
 
 namespace {
+
+constexpr GLenum kRed = 0x1903;  // GL_RED_EXT in ES2; GL_RED in GL2/ES3.
+constexpr GLint kR8 = 0x8229;
 
 const char* kVertexShader = R"(
 attribute vec4 position;
@@ -37,19 +41,23 @@ void main() {
 })";
 
 const char* kFragmentShader = R"(
+precision mediump float;
 uniform sampler2D inputImageTexture;
+uniform bool coverageOnly;
 varying mediump vec2 textureCoordinate;
 
 void main() {
-  gl_FragColor = texture2D(inputImageTexture, textureCoordinate);
+  vec4 color = texture2D(inputImageTexture, textureCoordinate);
+  gl_FragColor = coverageOnly ? vec4(color.r) : color;
 })";
 
 }  // namespace
 
 namespace glfc {
 
-Framebuffer::Framebuffer(const int width, const int height)
-    : framebuffer_(0), height_(height), is_initialized_(false),
+Framebuffer::Framebuffer(const int width, const int height, bool coverage_only)
+    : coverage_only_(coverage_only), framebuffer_(0), height_(height),
+      is_initialized_(false),
       program_(nullptr), renderbuffer_(0), texture_(0), width_(width) {
 }
 
@@ -62,9 +70,50 @@ Framebuffer::~Framebuffer() {
 }
 
 bool Framebuffer::Init() {
+  if (coverage_only_ && SingleChannelInternalFormat() != 0 && InitWithFormat(true))
+    return true;
+  return InitWithFormat(false);
+}
+
+GLint Framebuffer::SingleChannelInternalFormat() {
+#if defined(GLFC_GLES3)
+  return GL_R8;
+#else
+#if defined(GLFC_GLES2)
+  // An ES2 request may return a backwards-compatible ES3 context, whose core
+  // RED support does not require advertising GL_EXT_texture_rg.
+  const auto* version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+  if (version != nullptr && std::strncmp(version, "OpenGL ES ", 10) == 0 &&
+      version[10] >= '3' && version[10] <= '9') return kR8;
+  const char* name = "GL_EXT_texture_rg";
+#else
+  const char* name = "GL_ARB_texture_rg";
+#endif
+  const auto* extensions =
+      reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
+  if (extensions == nullptr) return 0;
+  const std::size_t length = std::strlen(name);
+  const char* match = extensions;
+  while ((match = std::strstr(match, name)) != nullptr) {
+    if ((match == extensions || match[-1] == ' ') &&
+        (match[length] == '\0' || match[length] == ' ')) {
+#if defined(GLFC_GLES2)
+      return kRed;
+#else
+      return kR8;
+#endif
+    }
+    match += length;
+  }
+  return 0;
+#endif
+}
+
+bool Framebuffer::InitWithFormat(bool single_channel) {
   if (is_initialized_) {
     Finalize();
   }
+  single_channel_ = single_channel;
 
   if (program_ == nullptr) {
     program_ = new Program;
@@ -94,7 +143,10 @@ bool Framebuffer::Init() {
 	glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
 	glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
 #endif
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, GL_RGBA,
+  const GLenum format = single_channel ? kRed : GL_RGBA;
+  const GLint internal_format =
+      single_channel ? SingleChannelInternalFormat() : GL_RGBA;
+  glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width_, height_, 0, format,
                GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -173,6 +225,8 @@ void Framebuffer::Finalize() {
 
 void Framebuffer::Render() const {
   program_->Use();
+  glUniform1i(glGetUniformLocation(program_->program(), "coverageOnly"),
+              coverage_only_);
   glBlendFunc(GL_ONE, GL_ZERO);
   program_->Render(texture_);
 }
